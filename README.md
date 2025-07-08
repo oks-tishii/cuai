@@ -9,8 +9,8 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 1. **リポジトリをクローンする:**
 
    ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/oks-tishii/cuai.git
+   cd cuai
    ```
 
 2. **`uv` をインストールする:**
@@ -30,15 +30,15 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 
 5. **アプリケーションを実行する:**
    ```bash
-   uv run flet run main.py
+   uv run flet run app_client/main.py
    ```
 
 ## フォルダ構成
 
 ```
-├── _app_ml/            # ✨名称変更✨ コアMLバックエンドアプリケーションのソースコード (旧 ml_app/)
+├── app_ml/            # コアMLバックエンドアプリケーションのソースコード
 │   ├── __init__.py
-│   ├── config/         # ✨変更✨ 個別アプリの設定（共通設定以外でml_app固有の設定があれば）
+│   ├── config/         #  個別アプリの設定
 │   │   └── __init__.py
 │   │   └── settings.py
 │   ├── data/           # データローディング、前処理、データ拡張関連のモジュール
@@ -52,23 +52,23 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 │   │   ├── __init__.py
 │   │   └── common.py
 │   └── main.py         # メインの学習スクリプト
-├── _app_client/        # ✨名称変更✨ GUIアプリケーションのソースコード (旧 client_app/)
+├── app_client/        # GUIアプリケーションのソースコード
 │   ├── __init__.py
 │   ├── main_gui.py
 │   ├── components/
 │   ├── services/
-│   └── config/         # ✨新規✨ 個別アプリの設定（client_app固有の設定があれば）
+│   └── config/         # 個別アプリの設定
 │       └── __init__.py
 │       └── settings.py
-├── _config/            # ✨名称変更✨ プロジェクト全体の共通設定ファイル (旧 config/)
+├── config/            # プロジェクト全体の共通設定ファイル (旧 config/)
 │   └── __init__.py
 │   └── project_settings.py # プロジェクト全体のパスや共有定数など
-├── _data/              # データセット (旧 data/)
+├── data/              # データセット
 │   ├── processed/
 │   └── raw/
-├── _models/            # 学習済みモデルの保存先 (旧 models/)
-├── _notebooks/         # 実験・分析用の Jupyter Notebook (旧 notebooks/)
-├── _tests/             # テストスクリプト (旧 tests/)
+├── models/            # 学習済みモデルの保存先
+├── notebooks/         # 実験・分析用の Jupyter Notebook
+├── tests/             # テストスクリプト
 ├── .venv/              # 仮想環境のディレクトリ
 ├── .gitignore          # Git の追跡から除外するファイルを指定
 ├── pyproject.toml      # プロジェクトのメタデータと依存関係

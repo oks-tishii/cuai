@@ -36,30 +36,41 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 ## フォルダ構成
 
 ```
-.
-├── .venv
-├── data
-│   ├── processed
-│   └── raw
-├── models
-├── notebooks
-├── src
+├── _app_ml/            # ✨名称変更✨ コアMLバックエンドアプリケーションのソースコード (旧 ml_app/)
+│   ├── __init__.py
+│   ├── config/         # ✨変更✨ 個別アプリの設定（共通設定以外でml_app固有の設定があれば）
+│   │   └── __init__.py
+│   │   └── settings.py
+│   ├── data/           # データローディング、前処理、データ拡張関連のモジュール
+│   │   ├── __init__.py
+│   │   ├── datasets.py
+│   │   └── transforms.py
+│   ├── models/         # モデル定義関連のモジュール
+│   │   ├── __init__.py
+│   │   └── vae.py
+│   ├── utils/          # 共通ユーティリティ関数やヘルパーモジュール
+│   │   ├── __init__.py
+│   │   └── common.py
+│   └── main.py         # メインの学習スクリプト
+├── _app_client/        # ✨名称変更✨ GUIアプリケーションのソースコード (旧 client_app/)
+│   ├── __init__.py
+│   ├── main_gui.py
+│   ├── components/
+│   ├── services/
+│   └── config/         # ✨新規✨ 個別アプリの設定（client_app固有の設定があれば）
+│       └── __init__.py
+│       └── settings.py
+├── _config/            # ✨名称変更✨ プロジェクト全体の共通設定ファイル (旧 config/)
 │   └── __init__.py
-├── tests
-│   └── __init__.py
-├── .gitignore
-├── pyproject.toml
-└── README.md
+│   └── project_settings.py # プロジェクト全体のパスや共有定数など
+├── _data/              # データセット (旧 data/)
+│   ├── processed/
+│   └── raw/
+├── _models/            # 学習済みモデルの保存先 (旧 models/)
+├── _notebooks/         # 実験・分析用の Jupyter Notebook (旧 notebooks/)
+├── _tests/             # テストスクリプト (旧 tests/)
+├── .venv/              # 仮想環境のディレクトリ
+├── .gitignore          # Git の追跡から除外するファイルを指定
+├── pyproject.toml      # プロジェクトのメタデータと依存関係
+└── README.md           # プロジェクトの説明
 ```
-
-- **`.venv/`**: 仮想環境のディレクトリ
-- **`data/`**: データセット
-  - **`raw/`**: 生データ
-  - **`processed/`**: 加工済みデータ
-- **`models/`**: 学習済みモデル
-- **`notebooks/`**: 実験・分析用の Jupyter Notebook
-- **`src/`**: アプリケーションのソースコード
-- **`tests/`**: テストスクリプト
-- **`.gitignore`**: Git の追跡から除外するファイルを指定
-- **`pyproject.toml`**: プロジェクトのメタデータと依存関係
-- **`README.md`**: このファイル

@@ -16,7 +16,7 @@ interface DetectionResult {
   isAnomalous: boolean;
   heatmap: string;
   markedImage: string;
-  timestamp: Date;
+  timestamp: string;
 }
 
 interface AnalysisScreenProps {
@@ -77,7 +77,7 @@ export default function AnalysisScreen({
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">詳細分析</h2>
           <p className="text-gray-400">
-            検知結果: {detectionResult.timestamp.toLocaleString()}
+            検知結果: {new Date(detectionResult.timestamp).toLocaleString()}
           </p>
         </div>
 

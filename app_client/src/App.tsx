@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import Navigation from './components/Navigation';
-import UploadScreen from './components/UploadScreen';
-import AnalysisScreen from './components/AnalysisScreen';
-import HistoryScreen from './components/HistoryScreen';
-import SettingsScreen from './components/SettingsScreen';
+import { useState } from "react";
+import Navigation from "./components/Navigation";
+import UploadScreen from "./components/UploadScreen";
+import AnalysisScreen from "./components/AnalysisScreen";
+import HistoryScreen from "./components/HistoryScreen";
+import SettingsScreen from "./components/SettingsScreen";
 
 interface DetectionResult {
   id: string;
@@ -12,55 +12,64 @@ interface DetectionResult {
   isAnomalous: boolean;
   heatmap: string;
   markedImage: string;
-  timestamp: Date;
+  timestamp: string; // Date object is not directly serializable
 }
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState('upload');
+  const [currentScreen, setCurrentScreen] = useState("upload");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
+  const [detectionResult, setDetectionResult] =
+    useState<DetectionResult | null>(null);
   const [threshold, setThreshold] = useState(0.5);
   const [history, setHistory] = useState<DetectionResult[]>([]);
+  const [isTraining, setIsTraining] = useState(false);
 
-  const handleImageSelect = (image: string) => {
-    setSelectedImage(image);
+  const handleImageSelect = (imageFile: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Image = e.target?.result as string;
+      setSelectedImage(base64Image);
+    };
+    reader.readAsDataURL(imageFile);
   };
 
   const handleProcessImage = async () => {
     if (!selectedImage) return;
-    
     setIsProcessing(true);
-    
-    // Simulate PatchCore processing
-    setTimeout(() => {
-      const score = Math.random();
-      const result: DetectionResult = {
-        id: Date.now().toString(),
-        image: selectedImage,
-        anomalyScore: score,
-        isAnomalous: score > threshold,
-        heatmap: `https://images.pexels.com/photos/8566526/pexels-photo-8566526.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
-        markedImage: `https://images.pexels.com/photos/8566527/pexels-photo-8566527.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
-        timestamp: new Date()
-      };
-      
+    try {
+      const result = await window.pywebview.api.process_image(selectedImage);
+      console.log("Detection result from Python:", result);
       setDetectionResult(result);
-      setHistory(prev => [result, ...prev.slice(0, 19)]);
+      setHistory((prev) => [result, ...prev.slice(0, 19)]);
+      setCurrentScreen("analysis");
+    } catch (error) {
+      console.error("Error processing image:", error);
+    } finally {
       setIsProcessing(false);
-      
-      // Auto-switch to analysis screen after processing
-      setCurrentScreen('analysis');
-    }, 3000);
+    }
+  };
+
+  const handleRetrainModel = async () => {
+    setIsTraining(true);
+    try {
+      const result = await window.pywebview.api.retrain_model();
+      console.log("Retrain result:", result);
+      // Optionally, show a notification to the user
+    } catch (error) {
+      console.error("Error retraining model:", error);
+    } finally {
+      setIsTraining(false);
+    }
   };
 
   const handleSelectResult = (result: DetectionResult) => {
     setDetectionResult(result);
-    setCurrentScreen('analysis');
+    setCurrentScreen("analysis");
   };
 
   const handleDeleteResult = (id: string) => {
-    setHistory(prev => prev.filter(r => r.id !== id));
+    setHistory((prev) => prev.filter((r) => r.id !== id));
     if (detectionResult?.id === id) {
       setDetectionResult(null);
     }
@@ -68,7 +77,7 @@ function App() {
 
   const renderCurrentScreen = () => {
     switch (currentScreen) {
-      case 'upload':
+      case "upload":
         return (
           <UploadScreen
             selectedImage={selectedImage}
@@ -77,14 +86,14 @@ function App() {
             isProcessing={isProcessing}
           />
         );
-      case 'analysis':
+      case "analysis":
         return (
           <AnalysisScreen
             detectionResult={detectionResult}
             threshold={threshold}
           />
         );
-      case 'history':
+      case "history":
         return (
           <HistoryScreen
             history={history}
@@ -92,11 +101,13 @@ function App() {
             onDeleteResult={handleDeleteResult}
           />
         );
-      case 'settings':
+      case "settings":
         return (
           <SettingsScreen
             threshold={threshold}
             onThresholdChange={setThreshold}
+            onRetrainModel={handleRetrainModel}
+            isTraining={isTraining}
           />
         );
       default:

@@ -3,7 +3,7 @@ import { Upload, Image, Play, FileImage } from 'lucide-react';
 
 interface UploadScreenProps {
   selectedImage: string | null;
-  onImageSelect: (image: string) => void;
+  onImageSelect: (file: File) => void;
   onProcessImage: () => void;
   isProcessing: boolean;
 }
@@ -19,11 +19,7 @@ export default function UploadScreen({
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onImageSelect(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      onImageSelect(file);
     }
   };
 
@@ -31,11 +27,7 @@ export default function UploadScreen({
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onImageSelect(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      onImageSelect(file);
     }
   };
 

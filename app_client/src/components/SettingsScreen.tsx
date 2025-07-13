@@ -1,12 +1,19 @@
 import React from 'react';
-import { Settings, Sliders, Database, Bell, Shield } from 'lucide-react';
+import { Settings, Sliders, Database, Bell, Shield, RefreshCw } from 'lucide-react';
 
 interface SettingsScreenProps {
   threshold: number;
   onThresholdChange: (value: number) => void;
+  onRetrainModel: () => void;
+  isTraining: boolean;
 }
 
-export default function SettingsScreen({ threshold, onThresholdChange }: SettingsScreenProps) {
+export default function SettingsScreen({ 
+  threshold, 
+  onThresholdChange, 
+  onRetrainModel,
+  isTraining
+}: SettingsScreenProps) {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
@@ -110,13 +117,29 @@ export default function SettingsScreen({ threshold, onThresholdChange }: Setting
               </div>
 
               <div>
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm">GPU加速を使用する</span>
+                <label className="block text-sm font-medium mb-2">
+                  モデルの再学習
                 </label>
+                <button
+                  onClick={onRetrainModel}
+                  disabled={isTraining}
+                  className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-500"
+                >
+                  {isTraining ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span>学習中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-5 h-5" />
+                      <span>モデルを更新</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-sm text-gray-500 mt-2">
+                  現在のデータセットでモデルを再学習します。これには数分かかる場合があります。
+                </p>
               </div>
             </div>
           </div>

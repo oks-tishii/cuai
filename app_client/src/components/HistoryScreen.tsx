@@ -8,7 +8,7 @@ interface DetectionResult {
   isAnomalous: boolean;
   heatmap: string;
   markedImage: string;
-  timestamp: Date;
+  timestamp: string;
 }
 
 interface HistoryScreenProps {
@@ -30,7 +30,7 @@ export default function HistoryScreen({ history, onSelectResult, onDeleteResult 
     })
     .sort((a, b) => {
       if (sortBy === 'date') {
-        return b.timestamp.getTime() - a.timestamp.getTime();
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       } else {
         return b.anomalyScore - a.anomalyScore;
       }
@@ -115,7 +115,7 @@ export default function HistoryScreen({ history, onSelectResult, onDeleteResult 
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-400">
-                      {result.timestamp.toLocaleDateString()} {result.timestamp.toLocaleTimeString()}
+                      {new Date(result.timestamp).toLocaleString()}
                     </span>
                   </div>
 

@@ -1,68 +1,79 @@
-# 中部大学 AI プロジェクト課題
+# PatchCore 画像異常検知アプリケーション
 
-## VAE 画像異常検知アプリケーション
+## 概要
 
-Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画像異常検知アプリケーションです。
+PatchCore を利用した画像異常検知アプリケーションです。FastAPI サーバー、React フロントエンド、そして PyWebview によるデスクトップ GUI で構成されています。
+
+## アーキテクチャ
+
+- **Backend:** FastAPI を使用して構築されており、PatchCore モデルを API として提供します。
+- **Frontend:** React で構築されたウェブインターフェースです。
+- **GUI:** PyWebview を使用して、React フロントエンドをネイティブなデスクトップウィンドウにラップします。
 
 ## 開発環境の構築
 
-1. **リポジトリをクローンする:**
+### Backend (FastAPI)
+
+1. **ディレクトリを移動する:**
 
    ```bash
-   git clone https://github.com/oks-tishii/cuai.git
-   cd cuai
+   cd backend
    ```
 
 2. **`uv` をインストールする:**
    公式の指示に従って `uv` をインストールしてください: https://github.com/astral-sh/uv
 
-3. **仮想環境を作成する:**
+3. **仮想環境を作成し、依存関係をインストールする:**
 
    ```bash
    uv venv
-   ```
-
-4. **依存関係をインストールする:**
-
-   ```bash
    uv sync
    ```
 
-5. **アプリケーションを実行する:**
+4. **サーバーを起動する:**
    ```bash
-   uv run flet run app_client/main.py
+   uv run uvicorn main:app --reload
+   ```
+
+### Frontend (React)
+
+1. **ディレクトリを移動する:**
+
+   ```bash
+   cd frontend
+   ```
+
+2. **依存関係をインストールする:**
+
+   ```bash
+   npm install
+   ```
+
+3. **開発サーバーを起動する:**
+   ```bash
+   npm run dev
    ```
 
 ## フォルダ構成
 
 ```
-├── app_ml/            # コアMLバックエンドアプリケーションのソースコード
-│   ├── __init__.py
-│   ├── data/           # データローディング、前処理、データ拡張関連のモジュール
-│   │   ├── __init__.py
-│   │   ├── datasets.py
-│   │   └── transforms.py
-│   ├── models/         # モデル定義関連のモジュール
-│   │   ├── __init__.py
-│   │   └── vae.py
-│   ├── utils/          # 共通ユーティリティ関数やヘルパーモジュール
-│   │   ├── __init__.py
-│   │   └── common.py
-│   └── main.py         # メインの学習スクリプト
-├── app_client/        # GUIアプリケーションのソースコード
-│   ├── __init__.py
-│   ├── main_gui.py
-├── config/            # プロジェクト全体の共通設定ファイル (旧 config/)
-│   └── __init__.py
-│   └── settings.py # プロジェクト全体のパスや共有定数など
-├── data/              # データセット
-│   ├── processed/
-│   └── raw/
-├── models/            # 学習済みモデルの保存先
-├── notebooks/         # 実験・分析用の Jupyter Notebook
-├── tests/             # テストスクリプト
-├── .venv/              # 仮想環境のディレクトリ
+├── backend/            # FastAPIバックエンドアプリケーション
+├   └── data/           # データセット
+│      └── raw/
+│         └── screw/
+│   ├── api.py          # APIエンドポイント
+│   ├── create_model.py # PatchCoreモデル作成
+│   ├── dataset.py      # データセット関連
+│   ├── main.py         # アプリケーションエントリーポイント
+│   ├── models.py       # モデル関連
+│   ├── pyproject.toml  # 依存関係定義
+│   └── ...
+├── frontend/           # Reactフロントエンドアプリケーション
+│   ├── src/
+│   │   ├── App.tsx     # メインのReactコンポーネント
+│   │   └── main.tsx    # アプリケーションエントリーポイント
+│   ├── package.json    # 依存関係定義
+│   └── ...
 ├── .gitignore          # Git の追跡から除外するファイルを指定
-├── pyproject.toml      # プロジェクトのメタデータと依存関係
 └── README.md           # プロジェクトの説明
 ```

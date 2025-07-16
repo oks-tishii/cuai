@@ -17,54 +17,57 @@ interface DetectionResult {
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("upload");
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [detectionResult, setDetectionResult] =
-    useState<DetectionResult | null>(null);
+  const [detectionResults, setDetectionResults] = useState<
+    DetectionResult[]
+  >([]);
   const [threshold, setThreshold] = useState(0.5);
   const [history, setHistory] = useState<DetectionResult[]>([]);
 
-  const handleImageSelect = (image: string) => {
-    setSelectedImage(image);
+  const handleImagesSelect = (images: string[]) => {
+    setSelectedImages(images);
   };
 
-  const handleProcessImage = async () => {
-    if (!selectedImage) return;
+  const handleProcessImages = async () => {
+    if (selectedImages.length === 0) return;
 
     setIsProcessing(true);
+    const results: DetectionResult[] = [];
 
-    // Simulate PatchCore processing
-    setTimeout(() => {
+    // Simulate PatchCore processing for each image
+    for (const image of selectedImages) {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
       const score = Math.random();
       const result: DetectionResult = {
-        id: Date.now().toString(),
-        image: selectedImage,
+        id: Date.now().toString() + image,
+        image: image,
         anomalyScore: score,
         isAnomalous: score > threshold,
         heatmap: `https://images.pexels.com/photos/8566526/pexels-photo-8566526.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
         markedImage: `https://images.pexels.com/photos/8566527/pexels-photo-8566527.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
         timestamp: new Date(),
       };
+      results.push(result);
+    }
 
-      setDetectionResult(result);
-      setHistory((prev) => [result, ...prev.slice(0, 19)]);
-      setIsProcessing(false);
+    setDetectionResults(results);
+    setHistory((prev) => [...results, ...prev].slice(0, 20));
+    setIsProcessing(false);
+    setSelectedImages([]);
 
-      // Auto-switch to analysis screen after processing
-      setCurrentScreen("analysis");
-    }, 3000);
+    // Auto-switch to analysis screen after processing
+    setCurrentScreen("analysis");
   };
 
   const handleSelectResult = (result: DetectionResult) => {
-    setDetectionResult(result);
+    setDetectionResults([result]);
     setCurrentScreen("analysis");
   };
 
   const handleDeleteResult = (id: string) => {
     setHistory((prev) => prev.filter((r) => r.id !== id));
-    if (detectionResult?.id === id) {
-      setDetectionResult(null);
-    }
+    setDetectionResults((prev) => prev.filter((r) => r.id !== id));
   };
 
   const renderCurrentScreen = () => {
@@ -72,16 +75,16 @@ function App() {
       case "upload":
         return (
           <UploadScreen
-            selectedImage={selectedImage}
-            onImageSelect={handleImageSelect}
-            onProcessImage={handleProcessImage}
+            selectedImages={selectedImages}
+            onImagesSelect={handleImagesSelect}
+            onProcessImages={handleProcessImages}
             isProcessing={isProcessing}
           />
         );
       case "analysis":
         return (
           <AnalysisScreen
-            detectionResult={detectionResult}
+            detectionResults={detectionResults}
             threshold={threshold}
           />
         );

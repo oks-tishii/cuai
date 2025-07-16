@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Eye,
   Layers,
@@ -7,6 +7,7 @@ import {
   ZoomIn,
   ZoomOut,
   Move,
+  List,
 } from "lucide-react";
 
 interface DetectionResult {
@@ -20,20 +21,29 @@ interface DetectionResult {
 }
 
 interface AnalysisScreenProps {
-  detectionResult: DetectionResult | null;
+  detectionResults: DetectionResult[];
   threshold: number;
 }
 
 export default function AnalysisScreen({
-  detectionResult,
+  detectionResults,
   threshold,
 }: AnalysisScreenProps) {
+  const [selectedResult, setSelectedResult] = useState<DetectionResult | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"original" | "heatmap" | "marked">(
     "original"
   );
   const [zoom, setZoom] = useState(100);
 
-  if (!detectionResult) {
+  useEffect(() => {
+    if (detectionResults.length > 0 && !selectedResult) {
+      setSelectedResult(detectionResults[0]);
+    }
+  }, [detectionResults, selectedResult]);
+
+  if (detectionResults.length === 0 || !selectedResult) {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-6">
         <div className="max-w-6xl mx-auto">
@@ -61,13 +71,14 @@ export default function AnalysisScreen({
   ];
 
   const getCurrentImage = () => {
+    if (!selectedResult) return "";
     switch (viewMode) {
       case "heatmap":
-        return detectionResult.heatmap;
+        return selectedResult.heatmap;
       case "marked":
-        return detectionResult.markedImage;
+        return selectedResult.markedImage;
       default:
-        return detectionResult.image;
+        return selectedResult.image;
     }
   };
 
@@ -77,13 +88,42 @@ export default function AnalysisScreen({
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">詳細分析</h2>
           <p className="text-gray-400">
-            検知結果: {detectionResult.timestamp.toLocaleString()}
+            {detectionResults.length} 件の画像の結果を表示中
           </p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Results List */}
+          <div className="xl:col-span-1 space-y-4 bg-gray-800 rounded-xl p-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-2 flex items-center"><List className="w-5 h-5 mr-2"/>検出リスト</h3>
+            {detectionResults.map((result) => (
+              <div
+                key={result.id}
+                onClick={() => setSelectedResult(result)}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                  selectedResult?.id === result.id
+                    ? "bg-blue-600"
+                    : "bg-gray-700 hover:bg-gray-600"
+                }`}>
+                <div className="flex items-center space-x-4">
+                  <img src={result.image} alt="thumbnail" className="w-16 h-16 object-cover rounded-md"/>
+                  <div>
+                    <div className={`font-semibold ${
+                      result.isAnomalous ? 'text-red-400' : 'text-green-400'
+                    }`}>
+                      {result.isAnomalous ? "異常検出" : "正常"}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      Score: {(result.anomalyScore * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* Main Image Display */}
-          <div className="xl:col-span-3 space-y-6">
+          <div className="xl:col-span-2 space-y-6">
             {/* View Mode Selector */}
             <div className="bg-gray-800 rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
@@ -182,16 +222,16 @@ export default function AnalysisScreen({
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-2">
-                    {(detectionResult.anomalyScore * 100).toFixed(1)}%
+                    {(selectedResult.anomalyScore * 100).toFixed(1)}%
                   </div>
                   <div
                     className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      detectionResult.isAnomalous
+                      selectedResult.isAnomalous
                         ? "bg-red-500 text-white"
                         : "bg-green-500 text-white"
                     }`}
                   >
-                    {detectionResult.isAnomalous ? "異常検出" : "正常"}
+                    {selectedResult.isAnomalous ? "異常検出" : "正常"}
                   </div>
                 </div>
 
@@ -199,12 +239,12 @@ export default function AnalysisScreen({
                   <div className="w-full bg-gray-700 rounded-full h-4">
                     <div
                       className={`h-4 rounded-full transition-all duration-1000 ${
-                        detectionResult.anomalyScore > threshold
+                        selectedResult.anomalyScore > threshold
                           ? "bg-gradient-to-r from-red-500 to-red-600"
                           : "bg-gradient-to-r from-green-500 to-green-600"
                       }`}
                       style={{
-                        width: `${detectionResult.anomalyScore * 100}%`,
+                        width: `${selectedResult.anomalyScore * 100}%`,
                       }}
                     ></div>
                   </div>
@@ -226,8 +266,8 @@ export default function AnalysisScreen({
 
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">処理時間</span>
-                  <span className="font-mono">2.34s</span>
+                  <span className="text-gray-400">処理日時</span>
+                  <span className="font-mono">{selectedResult.timestamp.toLocaleTimeString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">信頼度</span>
@@ -236,13 +276,13 @@ export default function AnalysisScreen({
                 <div className="flex justify-between">
                   <span className="text-gray-400">検出領域数</span>
                   <span className="font-mono">
-                    {detectionResult.isAnomalous ? "3" : "0"}
+                    {selectedResult.isAnomalous ? "3" : "0"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">最大異常度</span>
                   <span className="font-mono">
-                    {(detectionResult.anomalyScore * 100).toFixed(1)}%
+                    {(selectedResult.anomalyScore * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -255,15 +295,11 @@ export default function AnalysisScreen({
               <div className="space-y-3">
                 <button className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center space-x-2">
                   <Download className="w-4 h-4" />
-                  <span>結果レポート (PDF)</span>
+                  <span>選択中の結果を保存</span>
                 </button>
                 <button className="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center justify-center space-x-2">
                   <Download className="w-4 h-4" />
-                  <span>画像セット (ZIP)</span>
-                </button>
-                <button className="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center justify-center space-x-2">
-                  <Download className="w-4 h-4" />
-                  <span>データ (JSON)</span>
+                  <span>すべての結果を保存 (ZIP)</span>
                 </button>
               </div>
             </div>

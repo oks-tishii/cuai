@@ -1,42 +1,47 @@
 import React, { useRef } from "react";
-import { Upload, Image, Play, FileImage } from "lucide-react";
+import { Upload, Play, FileImage, X } from "lucide-react";
 
 interface UploadScreenProps {
-  selectedImage: string | null;
-  onImageSelect: (image: string) => void;
-  onProcessImage: () => void;
+  selectedImages: string[];
+  onImagesSelect: (images: string[]) => void;
+  onProcessImages: () => void;
   isProcessing: boolean;
 }
 
 export default function UploadScreen({
-  selectedImage,
-  onImageSelect,
-  onProcessImage,
+  selectedImages,
+  onImagesSelect,
+  onProcessImages,
   isProcessing,
 }: UploadScreenProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onImageSelect(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = event.target.files;
+    if (files) {
+      const newImages = Array.from(files).map((file) =>
+        URL.createObjectURL(file)
+      );
+      onImagesSelect([...selectedImages, ...newImages]);
     }
   };
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onImageSelect(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = event.dataTransfer.files;
+    if (files) {
+      const imageFiles = Array.from(files).filter((file) =>
+        file.type.startsWith("image/")
+      );
+      const newImages = imageFiles.map((file) => URL.createObjectURL(file));
+      onImagesSelect([...selectedImages, ...newImages]);
     }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const newImages = [...selectedImages];
+    newImages.splice(index, 1);
+    onImagesSelect(newImages);
   };
 
   const handleDragOver = (event: React.DragEvent) => {
@@ -45,11 +50,11 @@ export default function UploadScreen({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">画像アップロード</h2>
           <p className="text-gray-400">
-            異常検知を行いたい画像をアップロードしてください
+            異常検知を行いたい画像をまとめてアップロードしてください
           </p>
         </div>
 
@@ -68,21 +73,35 @@ export default function UploadScreen({
             </div>
 
             <div
-              className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center h-96 flex flex-col items-center justify-center relative overflow-hidden hover:border-gray-500 transition-colors"
+              className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center h-96 flex flex-col items-center justify-center relative overflow-hidden hover:border-gray-500 transition-colors"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
-              {selectedImage ? (
-                <img
-                  src={selectedImage}
-                  alt="Selected"
-                  className="max-w-full max-h-full object-contain rounded-lg"
-                />
+              {selectedImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-4 overflow-y-auto h-full w-full">
+                  {selectedImages.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={image}
+                        alt={`Selected ${index}`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="space-y-6">
                   <FileImage className="w-20 h-20 text-gray-500 mx-auto" />
                   <div>
-                    <p className="text-xl text-gray-300 mb-2">画像をドロップ</p>
+                    <p className="text-xl text-gray-300 mb-2">
+                      画像をドラッグ＆ドロップ
+                    </p>
                     <p className="text-gray-500">
                       または上のボタンでファイルを選択
                     </p>
@@ -98,68 +117,52 @@ export default function UploadScreen({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageUpload}
               className="hidden"
             />
           </div>
 
-          {/* Preview and Controls */}
+          {/* Controls */}
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">プレビュー & 実行</h3>
+            <h3 className="text-xl font-semibold">実行コントロール</h3>
 
-            {selectedImage && (
-              <div className="bg-gray-800 rounded-xl p-6">
-                <div className="aspect-video bg-gray-700 rounded-lg mb-4 overflow-hidden">
-                  <img
-                    src={selectedImage}
-                    alt="Preview"
-                    className="w-full h-full object-contain"
-                  />
+            <div className="bg-gray-800 rounded-xl p-6">
+              <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <div className="text-gray-400">選択枚数</div>
+                  <div className="font-medium">{selectedImages.length} 枚</div>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="bg-gray-700 rounded-lg p-3">
-                      <div className="text-gray-400">ファイル形式</div>
-                      <div className="font-medium">JPEG/PNG</div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-3">
-                      <div className="text-gray-400">処理状態</div>
-                      <div className="font-medium">
-                        {isProcessing ? "処理中..." : "準備完了"}
-                      </div>
-                    </div>
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <div className="text-gray-400">処理状態</div>
+                  <div className="font-medium">
+                    {isProcessing
+                      ? "処理中..."
+                      : selectedImages.length > 0
+                      ? "準備完了"
+                      : "画像未選択"}
                   </div>
-
-                  <button
-                    onClick={onProcessImage}
-                    disabled={isProcessing}
-                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 rounded-lg transition-all flex items-center justify-center space-x-3 text-lg font-medium"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                        <span>PatchCore処理中...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-6 h-6" />
-                        <span>異常検知を実行</span>
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
-            )}
 
-            {!selectedImage && (
-              <div className="bg-gray-800 rounded-xl p-8 text-center">
-                <Image className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-400">
-                  画像を選択すると、プレビューと実行ボタンが表示されます
-                </p>
-              </div>
-            )}
+              <button
+                onClick={onProcessImages}
+                disabled={isProcessing || selectedImages.length === 0}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 rounded-lg transition-all flex items-center justify-center space-x-3 text-lg font-medium"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    <span>処理中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-6 h-6" />
+                    <span>異常検知を実行</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

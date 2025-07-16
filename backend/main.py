@@ -12,3 +12,10 @@ if __name__ == "__main__":
     threading.Thread(target=start_backend, daemon=True).start()
     webview.create_window("中部大学AI課題プロジェクト", "http://127.0.0.1:8000")
     webview.start()
+
+    # detector = PatchCoreInference("./exports/patchcore_screw.pt")
+    # # ディレクトリ内の全画像を処理
+    # dir_result = detector.detect_anomalies_from_directory(
+    #     "./data/raw/screw/test/good", threshold=0.5
+    # )
+    # print(f"ディレクトリ内画像数: {dir_result.total_images}")

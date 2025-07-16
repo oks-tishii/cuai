@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Upload, Image, Play, FileImage } from 'lucide-react';
+import React, { useRef } from "react";
+import { Upload, Image, Play, FileImage } from "lucide-react";
 
 interface UploadScreenProps {
   selectedImage: string | null;
@@ -8,11 +8,11 @@ interface UploadScreenProps {
   isProcessing: boolean;
 }
 
-export default function UploadScreen({ 
-  selectedImage, 
-  onImageSelect, 
-  onProcessImage, 
-  isProcessing 
+export default function UploadScreen({
+  selectedImage,
+  onImageSelect,
+  onProcessImage,
+  isProcessing,
 }: UploadScreenProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,7 +30,7 @@ export default function UploadScreen({
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => {
         onImageSelect(e.target?.result as string);
@@ -48,7 +48,9 @@ export default function UploadScreen({
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">画像アップロード</h2>
-          <p className="text-gray-400">異常検知を行いたい画像をアップロードしてください</p>
+          <p className="text-gray-400">
+            異常検知を行いたい画像をアップロードしてください
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -81,7 +83,9 @@ export default function UploadScreen({
                   <FileImage className="w-20 h-20 text-gray-500 mx-auto" />
                   <div>
                     <p className="text-xl text-gray-300 mb-2">画像をドロップ</p>
-                    <p className="text-gray-500">または上のボタンでファイルを選択</p>
+                    <p className="text-gray-500">
+                      または上のボタンでファイルを選択
+                    </p>
                   </div>
                   <div className="text-sm text-gray-600">
                     対応形式: JPG, PNG, GIF (最大10MB)
@@ -102,7 +106,7 @@ export default function UploadScreen({
           {/* Preview and Controls */}
           <div className="space-y-6">
             <h3 className="text-xl font-semibold">プレビュー & 実行</h3>
-            
+
             {selectedImage && (
               <div className="bg-gray-800 rounded-xl p-6">
                 <div className="aspect-video bg-gray-700 rounded-lg mb-4 overflow-hidden">
@@ -112,7 +116,7 @@ export default function UploadScreen({
                     className="w-full h-full object-contain"
                   />
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="bg-gray-700 rounded-lg p-3">
@@ -122,7 +126,7 @@ export default function UploadScreen({
                     <div className="bg-gray-700 rounded-lg p-3">
                       <div className="text-gray-400">処理状態</div>
                       <div className="font-medium">
-                        {isProcessing ? '処理中...' : '準備完了'}
+                        {isProcessing ? "処理中..." : "準備完了"}
                       </div>
                     </div>
                   </div>
@@ -151,7 +155,9 @@ export default function UploadScreen({
             {!selectedImage && (
               <div className="bg-gray-800 rounded-xl p-8 text-center">
                 <Image className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-400">画像を選択すると、プレビューと実行ボタンが表示されます</p>
+                <p className="text-gray-400">
+                  画像を選択すると、プレビューと実行ボタンが表示されます
+                </p>
               </div>
             )}
           </div>

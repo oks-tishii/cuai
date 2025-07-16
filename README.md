@@ -38,9 +38,6 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 ```
 ├── app_ml/            # コアMLバックエンドアプリケーションのソースコード
 │   ├── __init__.py
-│   ├── config/         #  個別アプリの設定
-│   │   └── __init__.py
-│   │   └── settings.py
 │   ├── data/           # データローディング、前処理、データ拡張関連のモジュール
 │   │   ├── __init__.py
 │   │   ├── datasets.py
@@ -55,14 +52,9 @@ Flet GUI を備えた、変分オートエンコーダ（VAE）を用いた画�
 ├── app_client/        # GUIアプリケーションのソースコード
 │   ├── __init__.py
 │   ├── main_gui.py
-│   ├── components/
-│   ├── services/
-│   └── config/         # 個別アプリの設定
-│       └── __init__.py
-│       └── settings.py
 ├── config/            # プロジェクト全体の共通設定ファイル (旧 config/)
 │   └── __init__.py
-│   └── project_settings.py # プロジェクト全体のパスや共有定数など
+│   └── settings.py # プロジェクト全体のパスや共有定数など
 ├── data/              # データセット
 │   ├── processed/
 │   └── raw/

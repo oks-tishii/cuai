@@ -8,14 +8,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import torch
+import torch.nn.functional as F
 
 from utils import NativeGaussianBlur, get_coreset_idx_randomp, get_tqdm_params
 
-
 EXPORT_DIR = Path("./exports")
-
-if not EXPORT_DIR.exists():
-    EXPORT_DIR.mkdir()
+EXPORT_DIR.mkdir(exist_ok=True)
 
 
 class KNNExtractor(torch.nn.Module):
@@ -26,7 +24,6 @@ class KNNExtractor(torch.nn.Module):
         pool_last: bool = False,
     ):
         super().__init__()
-
         self.feature_extractor = timm.create_model(
             backbone_name,
             out_indices=out_indices,
@@ -39,9 +36,8 @@ class KNNExtractor(torch.nn.Module):
         self.feature_extractor.eval()
 
         self.pool = torch.nn.AdaptiveAvgPool2d(1) if pool_last else None
-        self.backbone_name = backbone_name  # for results metadata
+        self.backbone_name = backbone_name
         self.out_indices = out_indices
-
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.feature_extractor = self.feature_extractor.to(self.device)
 
@@ -50,7 +46,6 @@ class KNNExtractor(torch.nn.Module):
             feature_maps = self.feature_extractor(x.to(self.device))
         feature_maps = [fmap.to("cpu") for fmap in feature_maps]
         if self.pool is not None:
-            # spit into fmaps and z
             return feature_maps[:-1], self.pool(feature_maps[-1])
         else:
             return feature_maps
@@ -62,7 +57,6 @@ class KNNExtractor(torch.nn.Module):
         raise NotImplementedError
 
     def evaluate(self, test_dl: DataLoader) -> Tuple[float, float]:
-        """Calls predict step for each test sample."""
         image_preds = []
         image_labels = []
         pixel_preds = []
@@ -70,10 +64,8 @@ class KNNExtractor(torch.nn.Module):
 
         for sample, mask, label in tqdm(test_dl, **get_tqdm_params()):
             z_score, fmap = self.forward(sample)
-
             image_preds.append(z_score.numpy())
             image_labels.append(label)
-
             pixel_preds.extend(fmap.flatten().numpy())
             pixel_labels.extend(mask.flatten().numpy())
 
@@ -100,31 +92,26 @@ class PatchCore(KNNExtractor):
         backbone_name: str = "resnet18",
         coreset_eps: float = 0.90,
     ):
-        super().__init__(
-            backbone_name=backbone_name,
-            out_indices=(2, 3),
-        )
+        super().__init__(backbone_name=backbone_name, out_indices=(2, 3))
         self.f_coreset = f_coreset
         self.coreset_eps = coreset_eps
         self.image_size = 224
         self.average = torch.nn.AvgPool2d(3, stride=1)
         self.blur = NativeGaussianBlur()
-        self.n_reweight = 3
-
         self.patch_lib = []
         self.resize = None
 
     def fit(self, train_dl):  # type: ignore
         for sample, _ in tqdm(train_dl, **get_tqdm_params()):
             feature_maps = self.extract(sample)
-
             if self.resize is None:
                 self.largest_fmap_size = feature_maps[0].shape[-2:]  # type: ignore
                 self.resize = torch.nn.AdaptiveAvgPool2d(self.largest_fmap_size)
+
             resized_maps = [self.resize(self.average(fmap)) for fmap in feature_maps]
             patch = torch.cat(resized_maps, 1)
             patch = patch.reshape(patch.shape[1], -1).T
-
+            patch = F.normalize(patch, p=2.0, dim=1)
             self.patch_lib.append(patch)
 
         self.patch_lib = torch.cat(self.patch_lib, 0)
@@ -138,28 +125,47 @@ class PatchCore(KNNExtractor):
             self.patch_lib = self.patch_lib[self.coreset_idx]
 
     def forward(self, sample):
+        # 特徴マップ抽出
         feature_maps = self.extract(sample)
+
+        # 特徴マップのリサイズと正規化
         resized_maps = [self.resize(self.average(fmap)) for fmap in feature_maps]  # type: ignore
-        patch = torch.cat(resized_maps, 1)
-        patch = patch.reshape(patch.shape[1], -1).T
+        patch = torch.cat(resized_maps, 1)  # [B, C, H, W] → [B, C, H, W]
+        patch = patch.reshape(patch.shape[1], -1).T  # [N_patches, C]
+        patch = F.normalize(patch, p=2.0, dim=1)  # L2正規化
 
+        # すべてのパッチとの距離を計算
         dist = torch.cdist(patch, self.patch_lib)  # type: ignore
-        min_val, min_idx = torch.min(dist, dim=1)
+        min_val, min_idx = torch.min(dist, dim=1)  # [N_patches]
 
+        # 最も異常なパッチ (最大の min_val を持つパッチ)
         s_star, s_idx = torch.max(min_val, dim=0)
 
-        m_test = patch.select(0, s_idx).unsqueeze(0)  # type: ignore
+        # m_test_star = テスト画像内の最も異常なパッチ
+        m_test_star = patch[s_idx].unsqueeze(0)  # [1, C]
 
-        m_star = self.patch_lib[min_idx[s_idx]].unsqueeze(0)
-        w_dist = torch.cdist(m_star, self.patch_lib)  # type: ignore
-        _, nn_idx = torch.topk(w_dist, k=self.n_reweight, largest=False)
-        m_star_knn = torch.linalg.norm(m_test - self.patch_lib[nn_idx[0, 1:]], dim=1)
-        D = torch.sqrt(torch.tensor(patch.shape[1]))
-        w = 1 - (torch.exp(s_star / D) / (torch.sum(torch.exp(m_star_knn / D))))
+        # m_star = 訓練時コアセット内で最も近いパッチ
+        m_star = self.patch_lib[min_idx[s_idx]].unsqueeze(0)  # [1, C]
+
+        # m_star に対する近傍パッチを取得
+        k = 5
+        dists_m_star = torch.cdist(m_star, self.patch_lib)  # type: ignore
+        _, nn_idx = torch.topk(dists_m_star, k=k, largest=False)
+
+        nb_vectors = self.patch_lib[nn_idx[0]]  # [k, C]
+        nb_dists = torch.linalg.norm(m_test_star - nb_vectors, dim=1)  # [k]
+
+        # 論文式 (7) の重み計算
+        numerator = torch.exp(torch.norm(m_test_star - m_star))
+        denominator = torch.sum(torch.exp(nb_dists))
+        w = 1.0 - (numerator / denominator)
+
+        # 最終異常スコア s
         s = w * s_star
 
+        # 異常マップ生成
         s_map = min_val.view(1, 1, *self.largest_fmap_size)
-        s_map = torch.nn.functional.interpolate(
+        s_map = F.interpolate(
             s_map, size=(self.image_size, self.image_size), mode="bilinear"
         )
         s_map = self.blur(s_map)
@@ -170,7 +176,6 @@ class PatchCore(KNNExtractor):
         return super().get_parameters(
             {
                 "f_coreset": self.f_coreset,
-                "n_reweight": self.n_reweight,
             }
         )
 

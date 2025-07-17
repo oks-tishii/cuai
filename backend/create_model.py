@@ -8,7 +8,7 @@ from models import PatchCore
 MODEL_NAME = "patchcore"
 DATASET_NAME = "screw"
 BACKBONE = "wide_resnet50_2"
-F_CORESET = 0.1
+F_CORESET = 1.0
 
 # --- Paths ---
 EXPORT_DIR = Path("./exports")

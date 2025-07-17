@@ -86,7 +86,8 @@ class PatchCoreInference:
         # 画像前処理用のtransform
         self.transform = transforms.Compose(
             [
-                transforms.Resize((224, 224)),
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -131,7 +132,7 @@ class PatchCoreInference:
         return base64_str
 
     def detect_anomaly_single(
-        self, image_path: str, threshold: float = 0.5
+        self, image_path: str, threshold: float = 0.3
     ) -> AnomalyResult:
         """
         単一画像の異常検出を実行
@@ -148,7 +149,9 @@ class PatchCoreInference:
         start_time = time.time()
 
         try:
-            self.logger.info(f"Detecting anomaly for {image_path} with threshold: {threshold}")
+            self.logger.info(
+                f"Detecting anomaly for {image_path} with threshold: {threshold}"
+            )
             # 元画像を読み込み
             original_image = cv2.imread(image_path)
             if original_image is None:
@@ -160,37 +163,40 @@ class PatchCoreInference:
             input_tensor = self.preprocess_image(image_path)
 
             # 推論実行
+            # with torch.no_grad():
+            #     anomaly_score, anomaly_map = self.model(input_tensor)
             with torch.no_grad():
-                anomaly_score, anomaly_map = self.model(input_tensor)
+                anomaly_score_tensor, anomaly_map_tensor = self.model(input_tensor)
 
-            # テンソルをnumpy配列に変換
-            anomaly_score_raw = anomaly_score.cpu().numpy()
-            anomaly_map = anomaly_map.squeeze().cpu().numpy()
+            # テンソルをnumpy配列に変換（マップ：(B,1,H,W) -> (H,W)）
+            anomaly_score_raw = float(anomaly_score_tensor.detach().cpu().item())
+            anomaly_map_np = anomaly_map_tensor.squeeze().numpy()
 
             # 異常度マップを0-1に正規化
-            anomaly_map_normalized = (anomaly_map - anomaly_map.min()) / (
-                anomaly_map.max() - anomaly_map.min() + 1e-8
-            )
+            am_min = float(anomaly_map_tensor.min())
+            am_max = float(anomaly_map_tensor.max())
+            anomaly_map_vis = (anomaly_map_np - am_min) / (am_max - am_min + 1e-8)
 
             # 異常スコアもマップの最大・最小値で正規化
-            anomaly_score = (anomaly_score_raw - anomaly_map.min()) / (
-                anomaly_map.max() - anomaly_map.min() + 1e-8
+            anomaly_score_normalized = float(anomaly_score_raw)
+
+            print(
+                f"Calculated anomaly score (raw): {anomaly_score_raw}, (normalized): {anomaly_score_tensor}"
             )
-            self.logger.info(f"Calculated anomaly score (raw): {anomaly_score_raw}, (normalized): {anomaly_score}")
 
             # ヒートマップ画像を生成（代替方法を使用）
-            heatmap_image = self.create_heatmap_alternative(anomaly_map_normalized)
+            heatmap_image = self.create_heatmap_alternative(anomaly_map_vis)  # type: ignore
 
             # マーキング画像を生成
             marking_image = self.create_marking_image(
-                original_image, anomaly_map_normalized, threshold
+                original_image, heatmap_image, threshold
             )
 
             # 異常領域の統計情報を計算
-            binary_mask = anomaly_map_normalized > threshold
+            binary_mask = anomaly_map_vis > threshold
             num_anomaly_regions = self.count_anomaly_regions(binary_mask)
-            max_anomaly_score = float(anomaly_map_normalized.max())
-            confidence = self.calculate_confidence(anomaly_map_normalized, threshold)
+            max_anomaly_score = float(anomaly_map_vis.max())
+            confidence = self.calculate_confidence(anomaly_map_vis, threshold)
 
             # 画像をBase64に変換
             heatmap_base64 = self.image_to_base64(heatmap_image)
@@ -200,7 +206,7 @@ class PatchCoreInference:
 
             return AnomalyResult(
                 image_path=image_path,
-                anomaly_score=float(anomaly_score),
+                anomaly_score=float(anomaly_score_normalized),
                 confidence=confidence,
                 num_anomaly_regions=num_anomaly_regions,
                 max_anomaly_score=max_anomaly_score,
@@ -352,87 +358,187 @@ class PatchCoreInference:
             # メモリを解放
             plt.close(fig)
 
-    def create_heatmap_alternative(self, anomaly_map: np.ndarray) -> np.ndarray:  # type: ignore
-        """
-        Matplotlibを使わずにヒートマップ画像を生成（代替方法）
+    # def create_heatmap_alternative(self, anomaly_map: np.ndarray) -> np.ndarray:  # type: ignore
+    #     """
+    #     Matplotlibを使わずにヒートマップ画像を生成（代替方法）
 
-        Args:
-            anomaly_map: 正規化された異常度マップ
+    #     Args:
+    #         anomaly_map: 正規化された異常度マップ
 
-        Returns:
-            ヒートマップ画像 (RGB)
-        """
+    #     Returns:
+    #         ヒートマップ画像 (RGB)
+    #     """
 
-        # カラーマップを手動で実装
-        def apply_jet_colormap(values):
-            """Jetカラーマップを適用"""
-            # 値を0-255の範囲に変換
-            normalized = (values * 255).astype(np.uint8)
+    #     # カラーマップを手動で実装
+    #     def apply_jet_colormap(values):
+    #         """Jetカラーマップを適用"""
+    #         # 値を0-255の範囲に変換
+    #         normalized = (values * 255).astype(np.uint8)
 
-            # Jetカラーマップの近似
-            colors = np.zeros((*normalized.shape, 3), dtype=np.uint8)
+    #         # Jetカラーマップの近似
+    #         colors = np.zeros((*normalized.shape, 3), dtype=np.uint8)
 
-            # 青から赤への変化
-            colors[..., 0] = np.where(
-                normalized < 128,
-                0,
-                np.where(normalized < 192, (normalized - 128) * 4, 255),
-            )  # Red
-            colors[..., 1] = np.where(
-                normalized < 64,
-                normalized * 4,
-                np.where(normalized < 192, 255, 255 - (normalized - 192) * 4),
-            )  # Green
-            colors[..., 2] = np.where(
-                normalized < 64,
-                255,
-                np.where(normalized < 128, 255 - (normalized - 64) * 4, 0),
-            )  # Blue
+    #         # 青から赤への変化
+    #         colors[..., 0] = np.where(
+    #             normalized < 128,
+    #             0,
+    #             np.where(normalized < 192, (normalized - 128) * 4, 255),
+    #         )  # Red
+    #         colors[..., 1] = np.where(
+    #             normalized < 64,
+    #             normalized * 4,
+    #             np.where(normalized < 192, 255, 255 - (normalized - 192) * 4),
+    #         )  # Green
+    #         colors[..., 2] = np.where(
+    #             normalized < 64,
+    #             255,
+    #             np.where(normalized < 128, 255 - (normalized - 64) * 4, 0),
+    #         )  # Blue
 
-            return colors
+    #         return colors
 
-        # ヒートマップを生成
-        height, width = anomaly_map.shape
-        heatmap = apply_jet_colormap(anomaly_map)
+    #     # ヒートマップを生成
+    #     height, width = anomaly_map.shape
+    #     heatmap = apply_jet_colormap(anomaly_map)
 
-        # サイズを調整
-        if height != 224 or width != 224:
-            heatmap = cv2.resize(heatmap, (224, 224))
+    #     # サイズを調整
+    #     if height != 224 or width != 224:
+    #         heatmap = cv2.resize(heatmap, (224, 224))
 
-        return heatmap
+    #     return heatmap
+
+    def create_heatmap_alternative(
+        self,
+        anomaly_map: np.ndarray,  # type: ignore
+        *,
+        out_size: int | tuple[int, int] = 224,
+        colormap: str = "jet",
+        auto_normalize: bool = True,
+        clip: tuple[float, float] | None = None,
+        to_rgba: bool = False,
+        overlay_bgr: np.ndarray | None = None,
+        overlay_alpha: float = 0.5,
+    ) -> np.ndarray:
+        if anomaly_map.ndim != 2:
+            raise ValueError(f"anomaly_map must be 2D, got shape={anomaly_map.shape}")
+        if np.isnan(anomaly_map).any():
+            raise ValueError("anomaly_map contains NaN.")
+        amap = anomaly_map.astype(np.float32)
+
+        # クリップ
+        if clip is not None:
+            lo, hi = clip
+            amap = np.clip(amap, lo, hi)
+
+        # 自動正規化（全要素一定値ならゼロマップに）
+        if auto_normalize:
+            amin, amax = float(amap.min()), float(amap.max())
+            if amax - amin > 1e-12:
+                amap = (amap - amin) / (amax - amin)
+            else:
+                amap = np.zeros_like(amap)
+
+        # 出力サイズ
+        if isinstance(out_size, int):
+            target_w = target_h = out_size
+        else:
+            target_w, target_h = out_size
+        if amap.shape[0] != target_h or amap.shape[1] != target_w:
+            # OpenCV は (W,H) ではなく (width,height)
+            amap_resized = cv2.resize(
+                amap, (target_w, target_h), interpolation=cv2.INTER_LINEAR
+            )
+        else:
+            amap_resized = amap
+
+        # --- Colormap 実装 ---
+        def apply_colormap(v01: np.ndarray, name: str) -> np.ndarray:
+            v = np.clip(v01, 0.0, 1.0)
+            if name == "jet":
+                r = np.clip(1.5 - np.abs(4 * v - 3), 0, 1)
+                g = np.clip(1.5 - np.abs(4 * v - 2), 0, 1)
+                b = np.clip(1.5 - np.abs(4 * v - 1), 0, 1)
+                rgb = np.stack([r, g, b], axis=-1)
+            elif name == "magma":
+                c_lin = np.linspace(0, 1, 256, dtype=np.float32)
+
+                # 近似パレット（粗い定義）：R,G,B の各曲線
+                R = np.clip(1.8 * c_lin**1.2 - 0.1, 0, 1)
+                G = np.clip((c_lin**1.5) * 1.3, 0, 1)
+                B = np.clip(0.8 * (c_lin**0.7), 0, 1)
+                lut = np.stack([R, G, B], axis=1)
+                idx = (v * 255).astype(np.int32)
+                rgb = lut[idx]
+            elif name == "turbo":
+                r = 0.135 + 4.0 * v - 4.5 * v**2
+                g = -0.25 + 2.8 * v - 1.8 * v**2
+                b = 0.45 - 1.5 * v + 2.0 * v**2
+                rgb = np.stack([r, g, b], axis=-1)
+                rgb = np.clip(rgb, 0, 1)
+            else:
+                raise ValueError(f"Unsupported colormap: {name}")
+            return (rgb * 255).astype(np.uint8)
+
+        heat_rgb = apply_colormap(amap_resized, colormap)
+
+        # RGBA 変換
+        if to_rgba:
+            alpha_channel = np.full(
+                (heat_rgb.shape[0], heat_rgb.shape[1], 1), 255, dtype=np.uint8
+            )
+            heat_rgba = np.concatenate([heat_rgb, alpha_channel], axis=-1)
+            result = heat_rgba
+        else:
+            result = heat_rgb
+
+        # オーバーレイ（元画像 BGR→RGB 換算 & alpha blend）
+        if overlay_bgr is not None:
+            if overlay_bgr.shape[:2] != (target_h, target_w):
+                overlay_bgr = cv2.resize(
+                    overlay_bgr, (target_w, target_h), interpolation=cv2.INTER_AREA
+                )
+            base_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
+            # ヒートマップは 0~255
+            blended = (1 - overlay_alpha) * base_rgb.astype(
+                np.float32
+            ) + overlay_alpha * heat_rgb.astype(np.float32)
+            result = blended.clip(0, 255).astype(np.uint8)
+            if to_rgba:
+                alpha_channel = np.full((target_h, target_w, 1), 255, dtype=np.uint8)
+                result = np.concatenate([result, alpha_channel], axis=-1)
+
+        return result
 
     def create_marking_image(
-        self, original_image: np.ndarray, anomaly_map: np.ndarray, threshold: float
+        self,
+        original_image: np.ndarray,
+        anomaly_map: np.ndarray,
+        threshold: float,
+        overlay_heatmap: bool = True,
+        alpha: float = 0.5,
     ) -> np.ndarray:
-        """
-        元画像に異常部分を赤枠で囲んだマーキング画像を生成
+        if isinstance(anomaly_map, np.ndarray):
+            heatmap_pil = Image.fromarray(anomaly_map)
+        else:
+            heatmap_pil = anomaly_map
 
-        Args:
-            original_image: 元画像 (RGB)
-            anomaly_map: 正規化された異常度マップ
-            threshold: 異常度の閾値
+        original_pil = Image.fromarray(original_image)
 
-        Returns:
-            マーキング画像 (RGB)
-        """
-        # 元画像をリサイズ
-        marking_image = cv2.resize(original_image, (224, 224))
+        if heatmap_pil.size != original_pil.size:
+            base_pil = original_pil.resize(heatmap_pil.size)
+        else:
+            base_pil = original_pil
 
-        # 異常度マップを二値化
-        binary_mask = (anomaly_map > threshold).astype(np.uint8)
+        if overlay_heatmap:
+            base_np = np.asarray(base_pil).astype(np.float32) / 255.0
+            heat_np = np.asarray(heatmap_pil).astype(np.float32) / 255.0
 
-        # 輪郭を検出
-        contours, _ = cv2.findContours(
-            binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+            overlay_np = (1 - alpha) * base_np + alpha * heat_np
 
-        # 異常部分を赤枠で囲む
-        for contour in contours:
-            if cv2.contourArea(contour) > 10:  # 小さすぎる領域は除外
-                x, y, w, h = cv2.boundingRect(contour)
-                cv2.rectangle(marking_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-
-        return marking_image
+            overlay_np = (overlay_np * 255).clip(0, 255).astype(np.uint8)
+            return overlay_np
+        else:
+            return np.asarray(base_pil)
 
     def count_anomaly_regions(self, binary_mask: np.ndarray) -> int:
         """

@@ -18,6 +18,10 @@ interface DetectionResult {
   heatmap: string;
   markedImage: string;
   timestamp: Date;
+  processingTime: number;
+  confidence: number;
+  numAnomalyRegions: number;
+  maxAnomalyScore: number;
 }
 
 interface AnalysisScreenProps {
@@ -270,19 +274,23 @@ export default function AnalysisScreen({
                   <span className="font-mono">{selectedResult.timestamp.toLocaleTimeString()}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-400">処理時間</span>
+                  <span className="font-mono">{selectedResult.processingTime.toFixed(3)}s</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-400">信頼度</span>
-                  <span className="font-mono">94.2%</span>
+                  <span className="font-mono">{(selectedResult.confidence * 100).toFixed(1)}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">検出領域数</span>
                   <span className="font-mono">
-                    {selectedResult.isAnomalous ? "3" : "0"}
+                    {selectedResult.numAnomalyRegions}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">最大異常度</span>
                   <span className="font-mono">
-                    {(selectedResult.anomalyScore * 100).toFixed(1)}%
+                    {(selectedResult.maxAnomalyScore * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>

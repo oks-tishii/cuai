@@ -13,6 +13,10 @@ interface DetectionResult {
   heatmap: string;
   markedImage: string;
   timestamp: Date;
+  processingTime: number;
+  confidence: number;
+  numAnomalyRegions: number;
+  maxAnomalyScore: number;
 }
 
 function App() {
@@ -67,10 +71,14 @@ function App() {
             id: res.image_path || `${Date.now()}-${index}`,
             image: imageBase64 as string,
             anomalyScore: res.anomaly_score,
-            isAnomalous: res.anomaly_score > threshold,
+            isAnomalous: res.anomaly_score > threshold, // Use the score from the response
             heatmap: `data:image/png;base64,${res.heatmap_base64}`,
             markedImage: `data:image/png;base64,${res.marking_base64}`,
             timestamp: new Date(),
+            processingTime: res.processing_time,
+            confidence: res.confidence,
+            numAnomalyRegions: res.num_anomaly_regions,
+            maxAnomalyScore: res.max_anomaly_score,
           };
         })
       );

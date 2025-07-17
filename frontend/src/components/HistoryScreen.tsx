@@ -9,6 +9,10 @@ interface DetectionResult {
   heatmap: string;
   markedImage: string;
   timestamp: Date;
+  processingTime: number;
+  confidence: number;
+  numAnomalyRegions: number;
+  maxAnomalyScore: number;
 }
 
 interface HistoryScreenProps {

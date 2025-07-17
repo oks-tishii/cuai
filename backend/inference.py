@@ -148,6 +148,7 @@ class PatchCoreInference:
         start_time = time.time()
 
         try:
+            self.logger.info(f"Detecting anomaly for {image_path} with threshold: {threshold}")
             # 元画像を読み込み
             original_image = cv2.imread(image_path)
             if original_image is None:
@@ -163,13 +164,19 @@ class PatchCoreInference:
                 anomaly_score, anomaly_map = self.model(input_tensor)
 
             # テンソルをnumpy配列に変換
-            anomaly_score = anomaly_score.cpu().numpy()
+            anomaly_score_raw = anomaly_score.cpu().numpy()
             anomaly_map = anomaly_map.squeeze().cpu().numpy()
 
             # 異常度マップを0-1に正規化
             anomaly_map_normalized = (anomaly_map - anomaly_map.min()) / (
                 anomaly_map.max() - anomaly_map.min() + 1e-8
             )
+
+            # 異常スコアもマップの最大・最小値で正規化
+            anomaly_score = (anomaly_score_raw - anomaly_map.min()) / (
+                anomaly_map.max() - anomaly_map.min() + 1e-8
+            )
+            self.logger.info(f"Calculated anomaly score (raw): {anomaly_score_raw}, (normalized): {anomaly_score}")
 
             # ヒートマップ画像を生成（代替方法を使用）
             heatmap_image = self.create_heatmap_alternative(anomaly_map_normalized)

@@ -73,6 +73,7 @@ async def detect_anomaly_single(file: UploadFile = File(...), threshold: float =
 async def detect_anomaly_batch(
     files: List[UploadFile] = File(...), threshold: float = 0.5
 ):
+    print(f"Received threshold in API: {threshold}")
     try:
         tmp_file_paths = []
 

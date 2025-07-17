@@ -17,15 +17,15 @@ interface DetectionResult {
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("upload");
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [detectionResults, setDetectionResults] = useState<
-    DetectionResult[]
-  >([]);
+  const [detectionResults, setDetectionResults] = useState<DetectionResult[]>(
+    []
+  );
   const [threshold, setThreshold] = useState(0.5);
   const [history, setHistory] = useState<DetectionResult[]>([]);
 
-  const handleImagesSelect = (images: string[]) => {
+  const handleImagesSelect = (images: File[]) => {
     setSelectedImages(images);
   };
 
@@ -33,31 +33,58 @@ function App() {
     if (selectedImages.length === 0) return;
 
     setIsProcessing(true);
-    const results: DetectionResult[] = [];
 
-    // Simulate PatchCore processing for each image
-    for (const image of selectedImages) {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-      const score = Math.random();
-      const result: DetectionResult = {
-        id: Date.now().toString() + image,
-        image: image,
-        anomalyScore: score,
-        isAnomalous: score > threshold,
-        heatmap: `https://images.pexels.com/photos/8566526/pexels-photo-8566526.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
-        markedImage: `https://images.pexels.com/photos/8566527/pexels-photo-8566527.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop`,
-        timestamp: new Date(),
-      };
-      results.push(result);
+    const formData = new FormData();
+    selectedImages.forEach((file) => {
+      formData.append("files", file, file.name);
+    });
+    formData.append("threshold", String(threshold));
+
+    try {
+      const response = await fetch("/detect-anomaly-batch", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Anomaly detection failed: ${response.statusText}`);
+      }
+
+      const resultData = await response.json();
+
+      const newResults = await Promise.all(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resultData.results.map(async (res: any, index: number) => {
+          const originalImageFile = selectedImages[index];
+          const imageBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(originalImageFile);
+          });
+
+          return {
+            id: res.image_path || `${Date.now()}-${index}`,
+            image: imageBase64 as string,
+            anomalyScore: res.anomaly_score,
+            isAnomalous: res.anomaly_score > threshold,
+            heatmap: `data:image/png;base64,${res.heatmap_base64}`,
+            markedImage: `data:image/png;base64,${res.marking_base64}`,
+            timestamp: new Date(),
+          };
+        })
+      );
+
+      setDetectionResults(newResults);
+      setHistory((prev) => [...newResults, ...prev].slice(0, 20));
+      setCurrentScreen("analysis");
+    } catch (error) {
+      console.error("Error during anomaly detection:", error);
+      // Consider showing an error message to the user
+    } finally {
+      setIsProcessing(false);
+      setSelectedImages([]);
     }
-
-    setDetectionResults(results);
-    setHistory((prev) => [...results, ...prev].slice(0, 20));
-    setIsProcessing(false);
-    setSelectedImages([]);
-
-    // Auto-switch to analysis screen after processing
-    setCurrentScreen("analysis");
   };
 
   const handleSelectResult = (result: DetectionResult) => {

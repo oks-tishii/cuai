@@ -10,7 +10,7 @@ def start_backend():
     uvicorn.run(app=app, host="127.0.0.1", port=8000, reload=False)
 
 
-def wait_for_server(url: str, timeout=3600, interval=60):
+def wait_for_server(url: str, timeout=3600, interval=1):
     """指定URLにtimeout秒間、interval秒ごとにアクセスを試みる"""
     start_time = time.time()
     while True:

@@ -2,8 +2,8 @@ import React, { useRef } from "react";
 import { Upload, Play, FileImage, X } from "lucide-react";
 
 interface UploadScreenProps {
-  selectedImages: string[];
-  onImagesSelect: (images: string[]) => void;
+  selectedImages: File[];
+  onImagesSelect: (images: File[]) => void;
   onProcessImages: () => void;
   isProcessing: boolean;
 }
@@ -19,9 +19,7 @@ export default function UploadScreen({
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const newImages = Array.from(files).map((file) =>
-        URL.createObjectURL(file)
-      );
+      const newImages = Array.from(files);
       onImagesSelect([...selectedImages, ...newImages]);
     }
   };
@@ -33,8 +31,7 @@ export default function UploadScreen({
       const imageFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/")
       );
-      const newImages = imageFiles.map((file) => URL.createObjectURL(file));
-      onImagesSelect([...selectedImages, ...newImages]);
+      onImagesSelect([...selectedImages, ...imageFiles]);
     }
   };
 
@@ -82,7 +79,7 @@ export default function UploadScreen({
                   {selectedImages.map((image, index) => (
                     <div key={index} className="relative group">
                       <img
-                        src={image}
+                        src={URL.createObjectURL(image)}
                         alt={`Selected ${index}`}
                         className="w-full h-full object-cover rounded-lg"
                       />

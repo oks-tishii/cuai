@@ -3,25 +3,35 @@ import mimetypes
 import tempfile
 from typing import List
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
+from create_model import train_and_save
 from inference import PatchCoreInference
 
 # MIMEタイプの追加：.jsファイルを正しく読み込ませる
 mimetypes.add_type("application/javascript", ".js")
 
 
-app = FastAPI()
-
 detector = None
 
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global detector
-    detector = PatchCoreInference("./exports/patchcore_screw.pt")
+    model_path = "./exports/patchcore_screw.pt"
+
+    if not os.path.exists(model_path):
+        train_and_save()
+
+    detector = PatchCoreInference(model_path)
+
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/detect-anomaly-single")
